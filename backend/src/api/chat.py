@@ -36,10 +36,19 @@ async def chat(user_id: str, request: ChatRequest, session: Session = Depends(ge
     Chat endpoint that accepts a user message and returns an AI response
     along with any tool calls made by the agent.
     """
-    # Verify user exists
+    # Verify user exists, create if not found
     user = session.exec(select(User).where(User.id == user_id)).first()
     if not user:
-        raise HTTPException(status_code=404, detail=f"User with id {user_id} not found")
+        # Create a new user with the provided ID
+        from datetime import datetime
+        user = User(
+            id=user_id,
+            email=f"{user_id}@example.com",  # Default email format
+            name=user_id  # Use the user_id as the name
+        )
+        session.add(user)
+        session.commit()
+        session.refresh(user)
 
     # Get or create conversation
     conversation = None

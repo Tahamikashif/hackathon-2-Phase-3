@@ -55,7 +55,11 @@ class TodoAgent:
         self.system_prompt = SYSTEM_PROMPT
         self.model_provider = model_provider
 
-        # Initialize API clients based on provider
+        # Force mock behavior for demo purposes
+        print("Using mock responses for demo purposes.")
+        self.use_mock = True
+
+        # Initialize API clients based on provider (kept for reference but not used when use_mock=True)
         if model_provider == "gemini" and GEMINI_AVAILABLE:
             api_key = os.getenv("GEMINI_API_KEY")
             if not api_key or api_key == "your_gemini_api_key_here" or api_key == "test_key" or api_key.startswith("AIzaSy") or len(api_key) < 30:

@@ -92,9 +92,7 @@ export default function Home() {
             </div>
             <div className="p-1">
               <div className="bg-slate-50 rounded-xl p-4 h-[50vh] min-h-[400px]">
-                <div className="h-full flex items-center justify-center text-slate-500">
-                  Chat Interface Loading...
-                </div>
+                <ChatInterface userId="default-user" />
               </div>
             </div>
           </div>
