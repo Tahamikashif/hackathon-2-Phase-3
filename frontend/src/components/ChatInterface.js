@@ -1,27 +1,21 @@
 import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import MessageList from './MessageList';
 import config from '../config';
 
 const ChatInterface = ({ userId: propUserId }) => {
-  const [userId, setUserId] = useState(propUserId || '');
-  const [isAuthenticated, setIsAuthenticated] = useState(!!propUserId);
-  const [showAuthForm, setShowAuthForm] = useState(!propUserId);
-  const [userEmail, setUserEmail] = useState('');
+  const { isLoggedIn, userEmail, userId, login, logout } = useAuth();
+  const [showAuthForm, setShowAuthForm] = useState(!propUserId && !isLoggedIn);
   const [isClient, setIsClient] = useState(false);
 
   // Set client state after mounting to prevent SSR mismatches
   useEffect(() => {
     setIsClient(true);
-    const storedEmail = localStorage.getItem('chatbot_user_email') || '';
-    const storedUserId = localStorage.getItem('chatbot_user_id') || '';
-
-    setUserEmail(storedEmail);
-    if (storedUserId) {
-      setUserId(storedUserId);
-      setIsAuthenticated(true);
+    if (isLoggedIn) {
       setShowAuthForm(false);
     }
-  }, []);
+  }, [isLoggedIn]);
+
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authMode, setAuthMode] = useState('login'); // 'login' or 'signup'
@@ -37,29 +31,25 @@ const ChatInterface = ({ userId: propUserId }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [modelProvider, setModelProvider] = useState('openai'); // Default to openai
   const messagesEndRef = useRef(null);
+  const scrollableContainerRef = useRef(null);
 
   const handleAuthSubmit = (e) => {
     e.preventDefault();
-    if ((authEmail.trim() && authPassword.trim()) || propUserId) {
-      // Use provided userId or derive from email
-      const derivedUserId = propUserId || authEmail.trim() || `user_${Date.now()}`;
+    if (authEmail.trim() && authPassword.trim()) {
+      // Generate a user ID
+      const derivedUserId = authMode === 'signup'
+        ? `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        : `user_${authEmail.replace(/[^a-zA-Z0-9]/g, '')}`;
 
-      setUserId(derivedUserId);
-      setIsAuthenticated(true);
+      // Update auth context
+      login(derivedUserId, authEmail.trim());
       setShowAuthForm(false);
-      setUserEmail(authEmail.trim()); // Update the userEmail state
-
-      // Store user info in localStorage for persistence
-      localStorage.setItem('chatbot_user_id', derivedUserId);
-      localStorage.setItem('chatbot_user_email', authEmail.trim());
     }
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
+    logout();
     setShowAuthForm(true);
-    setUserId('');
-    setUserEmail(''); // Reset the userEmail state
     setAuthEmail('');
     setAuthPassword('');
     setMessages([{
@@ -68,13 +58,13 @@ const ChatInterface = ({ userId: propUserId }) => {
       content: 'Hello! I\'m your AI task assistant. Please authenticate to start chatting.',
       timestamp: new Date().toISOString()
     }]);
-    localStorage.removeItem('chatbot_user_id');
-    localStorage.removeItem('chatbot_user_email');
   };
 
-  // Scroll to bottom of messages
+  // Disable all automatic scrolling when new messages arrive
+  // This prevents the screen from scrolling up or down automatically
   useEffect(() => {
-    scrollToBottom();
+    // Do nothing - no automatic scrolling behavior
+    // Scrolling will only happen when the user manually scrolls to the bottom
   }, [messages]);
 
   const scrollToBottom = () => {
@@ -83,7 +73,7 @@ const ChatInterface = ({ userId: propUserId }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!inputValue.trim() || isLoading || !isAuthenticated) return;
+    if (!inputValue.trim() || isLoading || !isLoggedIn) return;
 
     // Add user message to the chat
     const userMessage = {
@@ -99,7 +89,7 @@ const ChatInterface = ({ userId: propUserId }) => {
 
     try {
       // Send message to backend
-      const response = await fetch(`${config.API_BASE_URL}/${userId}/chat`, {
+      const response = await fetch(`${config.API_BASE_URL}/api/v1/conversations/${userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -145,11 +135,11 @@ const ChatInterface = ({ userId: propUserId }) => {
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 to-slate-100 rounded-2xl shadow-lg border border-slate-200">
-      {!isAuthenticated ? (
+      {!isLoggedIn || showAuthForm ? (
         <div className="flex flex-col items-center justify-center h-full p-6">
           <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200">
             <div className="text-center mb-6">
-              <div className="mx-auto bg-gradient-to-r from-indigo-600 to-blue-700 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+              <div className="mx-auto bg-gradient-to-r from-blue-600 to-indigo-700 w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-md">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>
@@ -173,7 +163,7 @@ const ChatInterface = ({ userId: propUserId }) => {
                     value={authEmail}
                     onChange={(e) => setAuthEmail(e.target.value)}
                     placeholder="Enter your email"
-                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300"
+                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
                     required
                   />
                 </div>
@@ -193,7 +183,7 @@ const ChatInterface = ({ userId: propUserId }) => {
                     value={authPassword}
                     onChange={(e) => setAuthPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-300"
+                    className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-300"
                     required
                   />
                 </div>
@@ -201,7 +191,7 @@ const ChatInterface = ({ userId: propUserId }) => {
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-indigo-600 to-blue-700 text-white py-3 rounded-lg hover:from-indigo-700 hover:to-blue-800 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white py-3 rounded-lg hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 flex items-center justify-center"
               >
                 <span className="font-medium">{authMode === 'login' ? 'Sign In' : 'Sign Up'}</span>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -214,7 +204,7 @@ const ChatInterface = ({ userId: propUserId }) => {
               <button
                 type="button"
                 onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')}
-                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium inline-flex items-center"
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium inline-flex items-center"
               >
                 {authMode === 'login' ? "Don't have an account? " : "Already have an account? "}
                 <span className="ml-1 underline">{authMode === 'login' ? 'Sign up' : 'Sign in'}</span>
@@ -228,11 +218,11 @@ const ChatInterface = ({ userId: propUserId }) => {
         </div>
       ) : (
         <>
-          <div className="flex-grow overflow-y-auto mb-3 p-4">
+          <div className="flex-grow overflow-y-auto mb-3 p-4" ref={scrollableContainerRef}>
             <div className="flex justify-between items-center mb-4 p-3 bg-gradient-to-r from-slate-100 to-slate-50 rounded-xl border border-slate-200">
               <div className="flex items-center">
-                <div className="bg-gradient-to-r from-indigo-100 to-blue-100 p-2 rounded-lg mr-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="bg-gradient-to-r from-blue-100 to-indigo-100 p-2 rounded-lg mr-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
@@ -256,7 +246,7 @@ const ChatInterface = ({ userId: propUserId }) => {
           </div>
 
           <form onSubmit={handleSubmit} className="mt-auto p-4 bg-gradient-to-b from-white to-slate-50 rounded-b-2xl border-t border-slate-200">
-            <div className="relative rounded-xl border border-slate-300 overflow-hidden focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 bg-white shadow-sm">
+            <div className="relative rounded-xl border border-slate-300 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 bg-white shadow-sm">
               <input
                 type="text"
                 value={inputValue}
@@ -270,7 +260,7 @@ const ChatInterface = ({ userId: propUserId }) => {
                 className={`absolute right-3 top-1/2 transform -translate-y-1/2 px-4 py-2 rounded-lg font-medium text-white ${
                   isLoading
                     ? 'bg-slate-400 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800'
+                    : 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800'
                 } transition-all duration-300 shadow-md flex items-center`}
                 disabled={isLoading || !inputValue.trim()}
               >
@@ -310,16 +300,16 @@ const ChatInterface = ({ userId: propUserId }) => {
                     className="text-xs bg-transparent border-none focus:outline-none focus:ring-0 text-slate-700 font-medium"
                   >
                     <option value="openai">OpenAI</option>
-                    <option value="gemini">Gemini</option>
+                    <option value="gemini">Todo</option>
                   </select>
                 </div>
                 <div className="flex space-x-2">
-                  <button className="text-slate-500 hover:text-indigo-600 transition-colors p-1 rounded-full hover:bg-slate-100">
+                  <button className="text-slate-500 hover:text-blue-600 transition-colors p-1 rounded-full hover:bg-slate-100">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                     </svg>
                   </button>
-                  <button className="text-slate-500 hover:text-indigo-600 transition-colors p-1 rounded-full hover:bg-slate-100">
+                  <button className="text-slate-500 hover:text-blue-600 transition-colors p-1 rounded-full hover:bg-slate-100">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>

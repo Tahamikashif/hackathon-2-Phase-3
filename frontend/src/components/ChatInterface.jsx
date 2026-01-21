@@ -35,7 +35,7 @@ const ChatInterface = ({ userId }) => {
 
     try {
       // Send message to backend
-      const response = await fetch(`${config.API_BASE_URL}/${userId}/chat`, {
+      const response = await fetch(`${config.API_BASE_URL}/api/v1/conversations/${userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

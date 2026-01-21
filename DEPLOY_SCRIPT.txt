@@ -1,0 +1,59 @@
+# Deployment Script for AI-Powered Todo Chatbot
+
+## Backend Deployment
+
+### To deploy the backend to Vercel:
+
+1. Make sure you have Vercel CLI installed:
+```bash
+npm i -g vercel
+```
+
+2. Navigate to the backend directory:
+```bash
+cd C:\Users\CSC\Desktop\Hackathon-5-phases\Hackathon-2\phase-3\backend
+```
+
+3. Login to Vercel (if not already logged in):
+```bash
+vercel login
+```
+
+4. Deploy the backend:
+```bash
+vercel --prod
+```
+
+5. During the deployment, you'll be prompted to set environment variables:
+   - Set `OPENROUTER_API_KEY` to your OpenRouter API key
+   - Set `DATABASE_URL` to your Neon database connection string
+
+## Frontend Deployment
+
+### To deploy the frontend to Vercel:
+
+1. Navigate to the frontend directory:
+```bash
+cd C:\Users\CSC\Desktop\Hackathon-5-phases\Hackathon-2\phase-3\frontend
+```
+
+2. Update the config file to point to your deployed backend:
+Edit `src/config.js` and set:
+```javascript
+API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'https://your-backend-deployed-url.vercel.app'
+```
+
+3. Deploy the frontend:
+```bash
+vercel --prod
+```
+
+4. Set the environment variable:
+   - `NEXT_PUBLIC_API_BASE_URL`: The URL of your deployed backend
+
+## Important Notes
+
+- The backend must be deployed first, as the frontend needs the backend URL
+- After deploying the backend, copy its URL to configure the frontend
+- Both deployments will generate unique URLs ending in `.vercel.app`
+- Remember to set all required environment variables in the Vercel dashboard
