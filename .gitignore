@@ -165,3 +165,5 @@ build/
 ehthumbs.db
 Thumbs.db
 .vercel
+*.mp4
+
